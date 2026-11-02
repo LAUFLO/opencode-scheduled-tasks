@@ -1,6 +1,7 @@
 import { For, Show } from "solid-js"
+import type { Ui } from "@opencode/plugin/gui"
 import type { TaskView } from "../rpc.ts"
-import { button, card, label, muted, primaryButton, rowTitle } from "./theme"
+import { card, label, muted, rowTitle } from "./theme"
 import { TaskDetail, TaskRow } from "./task-view"
 
 export function TasksSettings(props: {
@@ -9,6 +10,7 @@ export function TasksSettings(props: {
   selectedID: string | undefined
   loading: boolean
   error: string | undefined
+  ui: Ui
   onSelect: (id: string | undefined) => void
   onCreate: () => void
   onEdit: (id: string) => void
@@ -20,6 +22,7 @@ export function TasksSettings(props: {
 }) {
   const selected = () => props.tasks.find((task) => task.id === props.selectedID)
   const isRunning = (id: string) => props.running.includes(id)
+  const Button = props.ui.Button
   const active = () => props.tasks.filter((task) => task.enabled).length
   const next = () => {
     const times = props.tasks.filter((task) => task.enabled && task.nextRun).map((task) => task.nextRun!)
@@ -34,12 +37,12 @@ export function TasksSettings(props: {
           <div style={muted}>让 agent 按计划自动运行一段说明，结果保存在独立会话里。</div>
         </div>
         <div style="display:flex;gap:8px;">
-          <button type="button" style={button} onClick={props.onRefresh}>
+          <Button variant="neutral" onClick={props.onRefresh}>
             刷新
-          </button>
-          <button type="button" style={primaryButton} onClick={props.onCreate}>
+          </Button>
+          <Button variant="contrast" onClick={props.onCreate}>
             新建任务
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -75,9 +78,9 @@ export function TasksSettings(props: {
             <div style="font-size:28px;opacity:0.4;">◷</div>
             <div style={rowTitle}>还没有定时任务</div>
             <div style={muted}>创建一个任务，例如每天早上汇总行业动态。</div>
-            <button type="button" style={`${primaryButton}margin-top:6px;`} onClick={props.onCreate}>
+            <Button variant="contrast" onClick={props.onCreate}>
               新建任务
-            </button>
+            </Button>
           </div>
         }
       >
@@ -104,6 +107,7 @@ export function TasksSettings(props: {
                 <TaskDetail
                   task={task()}
                   running={isRunning(task().id)}
+                  ui={props.ui}
                   onEdit={() => props.onEdit(task().id)}
                   onDelete={() => props.onDelete(task().id)}
                   onRunNow={() => props.onRunNow(task().id)}

@@ -1,7 +1,8 @@
 import { For, Show } from "solid-js"
+import type { Ui } from "@opencode/plugin/gui"
 import type { TaskView } from "../rpc.ts"
 import { describeSchedule, formatCountdown, formatDuration, formatWhen } from "../shared/schedule.ts"
-import { button, dangerButton, dot, label, mono, muted, rowTitle } from "./theme"
+import { dot, label, mono, muted, rowTitle } from "./theme"
 
 function statusColor(task: TaskView, running: boolean): string {
   if (running) return "#f59e0b"
@@ -50,6 +51,7 @@ export function TaskRow(props: { task: TaskView; running: boolean; selected: boo
 export function TaskDetail(props: {
   task: TaskView
   running: boolean
+  ui: Ui
   onEdit: () => void
   onDelete: () => void
   onRunNow: () => void
@@ -57,6 +59,7 @@ export function TaskDetail(props: {
   onOpenSession: (sessionID: string) => void
 }) {
   const last = () => props.task.runs[0]
+  const Button = props.ui.Button
 
   return (
     <div style="display:flex;flex-direction:column;gap:14px;">
@@ -120,18 +123,18 @@ export function TaskDetail(props: {
       </Show>
 
       <div style="display:flex;gap:7px;flex-wrap:wrap;">
-        <button type="button" style={button} onClick={props.onRunNow} disabled={props.running}>
+        <Button variant="neutral" onClick={props.onRunNow} disabled={props.running}>
           {props.running ? "运行中…" : "立即运行"}
-        </button>
-        <button type="button" style={button} onClick={props.onToggle}>
+        </Button>
+        <Button variant="neutral" onClick={props.onToggle}>
           {props.task.enabled ? "暂停" : "启用"}
-        </button>
-        <button type="button" style={button} onClick={props.onEdit}>
+        </Button>
+        <Button variant="neutral" onClick={props.onEdit}>
           编辑
-        </button>
-        <button type="button" style={dangerButton} onClick={props.onDelete}>
+        </Button>
+        <Button variant="danger" onClick={props.onDelete}>
           删除
-        </button>
+        </Button>
       </div>
 
       <Show when={props.task.runs.length > 0}>
@@ -145,13 +148,13 @@ export function TaskDetail(props: {
                   <span style="white-space:nowrap;">{formatWhen(run.at, Date.now())}</span>
                   <span style="opacity:0.6;">{formatDuration(run.durationMs)}</span>
                   <Show when={run.sessionID}>
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost-muted"
+                      size="small"
                       onClick={() => props.onOpenSession(run.sessionID!)}
-                      style="margin-left:auto;background:none;border:none;color:inherit;font-size:11px;cursor:pointer;opacity:0.7;text-decoration:underline;padding:0;"
                     >
                       打开会话
-                    </button>
+                    </Button>
                   </Show>
                 </div>
               )}

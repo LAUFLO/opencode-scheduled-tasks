@@ -248,6 +248,7 @@ export default Plugin.define({
               projects={projects()}
               models={models()}
               dark={ctx.appearance.mode() === "dark"}
+              ui={ctx.ui}
               onCancel={() => setEditorDraft(undefined)}
               onSave={async (value) => {
                 const failure = await saveTask(value)
@@ -307,6 +308,7 @@ export default Plugin.define({
             onToggle={(id) => void toggleTask(id)}
             onOpenSession={openSession}
             onRefresh={() => void loadTasks()}
+            ui={ctx.ui}
           />
           {editor()}
         </>
@@ -341,6 +343,7 @@ export default Plugin.define({
             onToggle={(id) => void toggleTask(id)}
             onOpenSession={openSession}
             onRefresh={() => void loadTasks()}
+            ui={ctx.ui}
           />
           {editor()}
         </>

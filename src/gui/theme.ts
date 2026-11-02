@@ -1,19 +1,11 @@
 export const card = "border:1px solid rgba(127,127,127,0.2);border-radius:12px;background:rgba(127,127,127,0.03);"
 
-export const button =
-  "height:30px;box-sizing:border-box;padding:0 12px;border-radius:7px;border:1px solid rgba(127,127,127,0.3);background:transparent;color:inherit;font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0;"
+export const field = "height:32px;box-sizing:border-box;border-radius:7px;border:1px solid rgba(127,127,127,0.3);background:transparent;color:inherit;font-size:12px;font-family:inherit;"
 
-export const primaryButton =
-  "height:30px;box-sizing:border-box;padding:0 14px;border-radius:7px;border:1px solid transparent;background:var(--v2-accent,#22c55e);color:#fff;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;"
+export const input = `${field}width:100%;padding:0 9px;`
 
-export const dangerButton =
-  "height:30px;box-sizing:border-box;padding:0 12px;border-radius:7px;border:1px solid rgba(239,68,68,0.45);background:transparent;color:#ef4444;font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0;"
-
-export const input =
-  "width:100%;box-sizing:border-box;padding:7px 9px;border-radius:7px;border:1px solid rgba(127,127,127,0.3);background:transparent;color:inherit;font-size:12px;font-family:inherit;"
-
-export const select =
-  "height:30px;box-sizing:border-box;padding:0 8px;border-radius:7px;border:1px solid rgba(127,127,127,0.3);background:transparent;color:inherit;font-size:12px;"
+export const textarea =
+  "width:100%;box-sizing:border-box;padding:8px 9px;border-radius:7px;border:1px solid rgba(127,127,127,0.3);background:transparent;color:inherit;font-size:12px;font-family:inherit;line-height:1.5;resize:vertical;"
 
 export const label = "font-size:11px;opacity:0.65;"
 
