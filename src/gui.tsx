@@ -178,6 +178,7 @@ export default Plugin.define({
           draft={draft}
           projects={projects()}
           models={models()}
+          dark={ctx.appearance.mode() === "dark"}
           onCancel={dialog.close}
           onSave={async (value) => {
             const failure = await saveTask(value)

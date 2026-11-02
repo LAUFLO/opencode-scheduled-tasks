@@ -18,9 +18,15 @@ export function TaskEditor(props: {
   draft: TaskDraft
   projects: ProjectOption[]
   models: ModelOption[]
+  dark: boolean
   onSave: (draft: TaskDraft) => Promise<string | undefined>
   onCancel: () => void
 }) {
+  const surface = () => (props.dark ? "#1f1f1f" : "#ffffff")
+  const text = () => (props.dark ? "#ededed" : "#1a1a1a")
+  const fieldBg = () => (props.dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.03)")
+  const fieldStyle = () => `${input}background:${fieldBg()};color:${text()};`
+  const selectStyle = () => `${select}background:${fieldBg()};color:${text()};`
   const [name, setName] = createSignal(props.draft.name)
   const [prompt, setPrompt] = createSignal(props.draft.prompt)
   const [directory, setDirectory] = createSignal(props.draft.directory)
@@ -99,7 +105,7 @@ export function TaskEditor(props: {
       }}
     >
       <div
-        style="width:min(560px,100%);max-height:calc(100vh - 48px);overflow-y:auto;border-radius:14px;border:1px solid rgba(127,127,127,0.25);background:var(--v2-surface,#1b1b1b);box-shadow:0 24px 80px rgba(0,0,0,0.45);padding:20px;display:flex;flex-direction:column;gap:14px;"
+        style={`width:min(560px,100%);max-height:calc(100vh - 48px);overflow-y:auto;border-radius:14px;border:1px solid rgba(127,127,127,0.25);background:${surface()};color:${text()};box-shadow:0 24px 80px rgba(0,0,0,0.45);padding:20px;display:flex;flex-direction:column;gap:14px;`}
         onClick={(event) => event.stopPropagation()}
       >
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
@@ -112,7 +118,7 @@ export function TaskEditor(props: {
         <div style={field}>
           <span style={label}>名称</span>
           <input
-            style={input}
+            style={fieldStyle()}
             value={name()}
             placeholder="例如：每日行业动态"
             onInput={(event) => setName(event.currentTarget.value)}
@@ -122,7 +128,7 @@ export function TaskEditor(props: {
         <div style={field}>
           <span style={label}>说明</span>
           <textarea
-            style={`${input}min-height:110px;resize:vertical;line-height:1.5;`}
+            style={`${fieldStyle()}min-height:110px;resize:vertical;line-height:1.5;`}
             value={prompt()}
             placeholder="描述这次运行要做什么。会作为一条新消息发给 agent。"
             onInput={(event) => setPrompt(event.currentTarget.value)}
@@ -132,7 +138,7 @@ export function TaskEditor(props: {
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <div style={`${field}flex:1;min-width:150px;`}>
             <span style={label}>重复</span>
-            <select style={select} value={kind()} onChange={(event) => setKind(event.currentTarget.value as Schedule["kind"])}>
+            <select style={selectStyle()} value={kind()} onChange={(event) => setKind(event.currentTarget.value as Schedule["kind"])}>
               <option value="daily">每天</option>
               <option value="weekly">每周</option>
               <option value="interval">按间隔</option>
@@ -142,7 +148,7 @@ export function TaskEditor(props: {
           <Show when={kind() === "weekly"}>
             <div style={`${field}flex:1;min-width:120px;`}>
               <span style={label}>星期</span>
-              <select style={select} value={String(weekday())} onChange={(event) => setWeekday(Number(event.currentTarget.value))}>
+              <select style={selectStyle()} value={String(weekday())} onChange={(event) => setWeekday(Number(event.currentTarget.value))}>
                 <For each={WEEKDAYS}>{(item, index) => <option value={String(index())}>{item}</option>}</For>
               </select>
             </div>
@@ -150,14 +156,14 @@ export function TaskEditor(props: {
           <Show when={kind() === "daily" || kind() === "weekly"}>
             <div style={`${field}flex:1;min-width:120px;`}>
               <span style={label}>时间（本地）</span>
-              <input style={input} type="time" value={time()} onInput={(event) => setTime(event.currentTarget.value)} />
+              <input style={fieldStyle()} type="time" value={time()} onInput={(event) => setTime(event.currentTarget.value)} />
             </div>
           </Show>
           <Show when={kind() === "interval"}>
             <div style={`${field}flex:1;min-width:120px;`}>
               <span style={label}>间隔（分钟）</span>
               <input
-                style={input}
+                style={fieldStyle()}
                 type="number"
                 min="1"
                 value={String(minutes())}
@@ -169,7 +175,7 @@ export function TaskEditor(props: {
             <div style={`${field}flex:1;min-width:180px;`}>
               <span style={label}>运行时间（本地）</span>
               <input
-                style={input}
+                style={fieldStyle()}
                 type="datetime-local"
                 value={toLocalInput(onceAt())}
                 onInput={(event) => {
@@ -183,7 +189,7 @@ export function TaskEditor(props: {
 
         <div style={field}>
           <span style={label}>项目</span>
-          <select style={select} value={directory()} onChange={(event) => setDirectory(event.currentTarget.value)}>
+          <select style={selectStyle()} value={directory()} onChange={(event) => setDirectory(event.currentTarget.value)}>
             <option value="">选择项目…</option>
             <For each={props.projects}>
               {(project) => <option value={project.directory}>{project.name}</option>}
@@ -194,14 +200,14 @@ export function TaskEditor(props: {
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <div style={`${field}flex:1;min-width:150px;`}>
             <span style={label}>模型</span>
-            <select style={select} value={modelKey()} onChange={(event) => setModelKey(event.currentTarget.value)}>
+            <select style={selectStyle()} value={modelKey()} onChange={(event) => setModelKey(event.currentTarget.value)}>
               <option value="">使用默认模型</option>
               <For each={props.models}>{(model) => <option value={model.key}>{model.label}</option>}</For>
             </select>
           </div>
           <div style={`${field}flex:1;min-width:150px;`}>
             <span style={label}>运行模式</span>
-            <select style={select} value={mode()} onChange={(event) => setMode(event.currentTarget.value as TaskMode)}>
+            <select style={selectStyle()} value={mode()} onChange={(event) => setMode(event.currentTarget.value as TaskMode)}>
               <option value="plan">只读（plan）</option>
               <option value="default">默认（可能请求授权）</option>
             </select>
