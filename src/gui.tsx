@@ -146,6 +146,7 @@ export default Plugin.define({
           schedule: draft.schedule,
           enabled: draft.enabled,
           mode: draft.mode,
+          newSession: draft.newSession,
           ...(draft.model ? { model: draft.model } : {}),
         })) as { ok: boolean; id?: string; error?: string }
         if (!result.ok) return result.error ?? "保存失败"
@@ -169,6 +170,7 @@ export default Plugin.define({
             schedule: task.schedule,
             enabled: task.enabled,
             mode: task.mode,
+            newSession: task.newSession,
             ...(task.model ? { model: task.model } : {}),
           }
         : {
@@ -178,6 +180,7 @@ export default Plugin.define({
             schedule: { kind: "daily", time: "09:00" },
             enabled: true,
             mode: "plan",
+            newSession: true,
           }
 
       setEditorDraft(draft)

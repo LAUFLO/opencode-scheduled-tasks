@@ -100,6 +100,16 @@ export function TaskDetail(props: {
           <span style="font-size:12px;">{props.task.mode === "plan" ? "只读（plan）" : "默认"}</span>
         </div>
         <div style="display:flex;flex-direction:column;gap:2px;">
+          <span style={label}>运行会话</span>
+          <span style="font-size:12px;">
+            {props.task.newSession
+              ? "每次新建"
+              : props.task.sessionID
+                ? "复用同一会话"
+                : "复用（首次运行后创建）"}
+          </span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px;">
           <span style={label}>模型</span>
           <span style="font-size:12px;">
             {props.task.model ? `${props.task.model.providerID} / ${props.task.model.id}` : "默认"}
@@ -129,7 +139,7 @@ export function TaskDetail(props: {
         <Button variant="neutral" onClick={props.onToggle}>
           {props.task.enabled ? "暂停" : "启用"}
         </Button>
-        <Button variant="ghost" onClick={props.onEdit}>
+        <Button variant="neutral" onClick={props.onEdit}>
           编辑
         </Button>
         <Button variant="danger" onClick={props.onDelete}>

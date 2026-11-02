@@ -21,6 +21,7 @@ export type TaskDraft = {
   enabled: boolean
   model?: ModelRef
   mode: TaskMode
+  newSession: boolean
 }
 
 export type Snapshot = {

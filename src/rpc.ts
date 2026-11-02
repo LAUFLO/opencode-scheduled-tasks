@@ -35,6 +35,10 @@ export type Task = {
   enabled: boolean
   model?: ModelRef
   mode: TaskMode
+  /** Create a fresh session on every run. False reuses `sessionID`. */
+  newSession: boolean
+  /** The reused session for repeated runs. */
+  sessionID?: string
   createdAt: number
   updatedAt: number
   runs: RunRecord[]
@@ -96,12 +100,14 @@ const TaskSchema = {
     enabled: { type: "boolean" },
     model: ModelSchema,
     mode: { type: "string", enum: ["plan", "default"] },
+    newSession: { type: "boolean" },
+    sessionID: { type: "string" },
     createdAt: { type: "number" },
     updatedAt: { type: "number" },
     runs: { type: "array", items: RunSchema },
     nextRun: { type: "number" },
   },
-  required: ["id", "name", "prompt", "directory", "schedule", "enabled", "mode", "createdAt", "updatedAt", "runs"],
+  required: ["id", "name", "prompt", "directory", "schedule", "enabled", "mode", "newSession", "createdAt", "updatedAt", "runs"],
   additionalProperties: false,
 }
 
@@ -133,6 +139,7 @@ export const ScheduledTasks = Rpc.define({
           enabled: { type: "boolean" },
           model: ModelSchema,
           mode: { type: "string", enum: ["plan", "default"] },
+          newSession: { type: "boolean" },
         },
         required: ["name", "prompt", "directory", "schedule"],
         additionalProperties: false,

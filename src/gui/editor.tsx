@@ -34,6 +34,7 @@ export function TaskEditor(props: {
 }) {
   const Button = props.ui.Button
   const IconButton = props.ui.IconButton
+  const Switch = props.ui.Switch
 
   const [name, setName] = createSignal(props.draft.name)
   const [prompt, setPrompt] = createSignal(props.draft.prompt)
@@ -44,6 +45,7 @@ export function TaskEditor(props: {
   const [minutes, setMinutes] = createSignal(props.draft.schedule.minutes ?? 60)
   const [onceAt, setOnceAt] = createSignal(props.draft.schedule.at ?? Date.now() + 60 * 60_000)
   const [mode, setMode] = createSignal<TaskMode>(props.draft.mode)
+  const [newSession, setNewSession] = createSignal(props.draft.newSession)
   const [modelKey, setModelKey] = createSignal(
     props.draft.model ? `${props.draft.model.providerID}/${props.draft.model.id}` : "",
   )
@@ -97,6 +99,7 @@ export function TaskEditor(props: {
         enabled: props.draft.enabled,
         model: selectedModel(),
         mode: mode(),
+        newSession: newSession(),
       })
       if (failure) setError(failure)
     } finally {
@@ -261,6 +264,14 @@ export function TaskEditor(props: {
               onChange={(value) => setMode(value as TaskMode)}
             />
           </div>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+            <span style="font-size:12px;">每次运行都开启新会话</span>
+            <span style={muted}>关闭后复用同一个会话，适合几分钟一次的高频任务</span>
+          </div>
+          <Switch label="每次运行都开启新会话" checked={newSession()} onChange={setNewSession} />
         </div>
 
         <Show when={error()}>

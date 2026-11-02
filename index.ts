@@ -21,6 +21,7 @@ type SaveTaskInput = {
   enabled?: boolean
   model?: { providerID: string; id: string }
   mode?: TaskMode
+  newSession?: boolean
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -81,10 +82,12 @@ function sanitizeTask(value: unknown): Task | undefined {
     schedule,
     enabled: value.enabled !== false,
     mode,
+    newSession: value.newSession !== false,
     createdAt: typeof value.createdAt === "number" ? value.createdAt : Date.now(),
     updatedAt: typeof value.updatedAt === "number" ? value.updatedAt : Date.now(),
     runs: sanitizeRuns(value.runs),
   }
+  if (typeof value.sessionID === "string" && value.sessionID) task.sessionID = value.sessionID
   if (isRecord(value.model) && typeof value.model.providerID === "string" && typeof value.model.id === "string") {
     task.model = { providerID: value.model.providerID, id: value.model.id }
   }
@@ -194,15 +197,29 @@ export default Plugin.define({
       emit("run", task.id)
 
       try {
-        const session = await ctx.session.create({
-          location: { directory: task.directory },
-          title: `[定时] ${task.name}`,
-          ...(task.model ? { model: task.model } : {}),
-          ...(task.mode === "plan" ? { agent: "plan" } : {}),
-        })
-        record.sessionID = session.id
-        await ctx.session.prompt({ sessionID: session.id, text: task.prompt })
-        const result = await waitForCompletion(session.id, started)
+        let sessionID = task.newSession ? undefined : task.sessionID
+        if (sessionID) {
+          try {
+            const existing = (await ctx.session.get({ sessionID })) as { id?: string } | undefined
+            if (!existing?.id) sessionID = undefined
+          } catch {
+            sessionID = undefined
+          }
+        }
+        if (!sessionID) {
+          const session = await ctx.session.create({
+            location: { directory: task.directory },
+            title: `[定时] ${task.name}`,
+            ...(task.model ? { model: task.model } : {}),
+            ...(task.mode === "plan" ? { agent: "plan" } : {}),
+          })
+          sessionID = session.id
+          task.sessionID = sessionID
+          await persist()
+        }
+        record.sessionID = sessionID
+        await ctx.session.prompt({ sessionID, text: task.prompt })
+        const result = await waitForCompletion(sessionID, started)
         record.status = result.status
         if (result.error) record.error = result.error
       } catch (error) {
@@ -273,6 +290,7 @@ export default Plugin.define({
         if (!schedule) return { ok: false, error: "重复规则无效" }
 
         const now = Date.now()
+        const newSession = input.newSession !== false
         const existing = input.id ? tasks.find((task) => task.id === input.id) : undefined
         const task: Task = existing
           ? {
@@ -284,6 +302,7 @@ export default Plugin.define({
               updatedAt: now,
               enabled: input.enabled ?? existing.enabled,
               mode: input.mode ?? existing.mode,
+              newSession,
               ...(input.model ? { model: input.model } : {}),
             }
           : {
@@ -294,6 +313,7 @@ export default Plugin.define({
               schedule,
               enabled: input.enabled ?? true,
               mode: input.mode ?? "plan",
+              newSession,
               createdAt: now,
               updatedAt: now,
               runs: [],
@@ -301,6 +321,7 @@ export default Plugin.define({
             }
 
         if (!input.model) delete task.model
+        if (newSession) delete task.sessionID
         if (existing) {
           const index = tasks.findIndex((item) => item.id === task.id)
           tasks[index] = task
