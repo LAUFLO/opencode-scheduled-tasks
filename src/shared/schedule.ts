@@ -33,16 +33,14 @@ export function nextRun(schedule: Schedule, from: number): number | undefined {
     case "weekly": {
       const time = parseTime(schedule.time)
       if (!time) return undefined
-      const weekday = typeof schedule.weekday === "number" ? schedule.weekday : 1
-      const target = ((weekday % 7) + 7) % 7
-      const date = new Date(from)
-      const current = date.getDay()
-      let delta = (target - current + 7) % 7
-      let candidate = atTime(from, time.hours, time.minutes)
-      if (delta === 0 && candidate <= from) delta = 7
-      candidate = atTime(from + delta * DAY, time.hours, time.minutes)
-      if (candidate <= from) candidate = atTime(from + (delta + 7) * DAY, time.hours, time.minutes)
-      return candidate
+      const days = weeklyDays(schedule)
+      for (let offset = 0; offset <= 7; offset += 1) {
+        const base = from + offset * DAY
+        if (!days.includes(new Date(base).getDay())) continue
+        const candidate = atTime(base, time.hours, time.minutes)
+        if (candidate > from) return candidate
+      }
+      return undefined
     }
     case "interval": {
       const minutes = typeof schedule.minutes === "number" ? schedule.minutes : 0
@@ -60,6 +58,17 @@ export function nextRun(schedule: Schedule, from: number): number | undefined {
 
 const WEEKDAYS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"]
 
+/** The selected weekdays, sorted and de-duplicated, falling back to the single-day form. */
+export function weeklyDays(schedule: Schedule): number[] {
+  const raw = Array.isArray(schedule.weekdays) && schedule.weekdays.length > 0
+    ? schedule.weekdays
+    : typeof schedule.weekday === "number"
+      ? [schedule.weekday]
+      : [1]
+  const days = [...new Set(raw.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))]
+  return days.length > 0 ? days.sort((a, b) => a - b) : [1]
+}
+
 function pad(value: number): string {
   return String(value).padStart(2, "0")
 }
@@ -70,8 +79,8 @@ export function describeSchedule(schedule: Schedule): string {
     case "daily":
       return `每天 ${schedule.time ?? "09:00"}`
     case "weekly": {
-      const weekday = typeof schedule.weekday === "number" ? schedule.weekday : 1
-      return `每${WEEKDAYS[((weekday % 7) + 7) % 7]} ${schedule.time ?? "09:00"}`
+      const days = weeklyDays(schedule)
+      return `每${days.map((day) => WEEKDAYS[day]).join("、")} ${schedule.time ?? "09:00"}`
     }
     case "interval": {
       const minutes = typeof schedule.minutes === "number" ? schedule.minutes : 0

@@ -4,8 +4,10 @@ export type Schedule = {
   kind: ScheduleKind
   /** HH:mm in local time, for daily and weekly. */
   time?: string
-  /** 0 = Sunday, 6 = Saturday, for weekly. */
+  /** 0 = Sunday, 6 = Saturday. Single-day form kept for compatibility. */
   weekday?: number
+  /** Several weekdays for a weekly schedule, 0 = Sunday. */
+  weekdays?: number[]
   /** Minutes between runs, for interval. */
   minutes?: number
   /** Epoch milliseconds, for once. */

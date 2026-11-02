@@ -1,9 +1,10 @@
 import { For, Show, createSignal } from "solid-js"
 import type { Ui } from "@opencode/plugin/gui"
 import type { ModelRef, Schedule, TaskMode } from "../rpc.ts"
+import { weeklyDays } from "../shared/schedule.ts"
 import type { ModelOption, ProjectOption, TaskDraft } from "./types"
 import { Picker } from "./picker"
-import { input, label, textarea } from "./theme"
+import { input, label, muted, textarea } from "./theme"
 
 const WEEKDAYS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"]
 const KINDS = [
@@ -32,14 +33,14 @@ export function TaskEditor(props: {
   onCancel: () => void
 }) {
   const Button = props.ui.Button
-  const TextInput = props.ui.TextInput
+  const IconButton = props.ui.IconButton
 
   const [name, setName] = createSignal(props.draft.name)
   const [prompt, setPrompt] = createSignal(props.draft.prompt)
   const [directory, setDirectory] = createSignal(props.draft.directory)
   const [kind, setKind] = createSignal(props.draft.schedule.kind)
   const [time, setTime] = createSignal(props.draft.schedule.time ?? "09:00")
-  const [weekday, setWeekday] = createSignal(props.draft.schedule.weekday ?? 1)
+  const [days, setDays] = createSignal<number[]>(weeklyDays(props.draft.schedule))
   const [minutes, setMinutes] = createSignal(props.draft.schedule.minutes ?? 60)
   const [onceAt, setOnceAt] = createSignal(props.draft.schedule.at ?? Date.now() + 60 * 60_000)
   const [mode, setMode] = createSignal<TaskMode>(props.draft.mode)
@@ -54,7 +55,7 @@ export function TaskEditor(props: {
       case "daily":
         return { kind: "daily", time: time() }
       case "weekly":
-        return { kind: "weekly", weekday: weekday(), time: time() }
+        return { kind: "weekly", weekdays: days().length > 0 ? days() : [1], time: time() }
       case "interval":
         return { kind: "interval", minutes: Math.max(1, Math.round(minutes())) }
       case "once":
@@ -78,6 +79,10 @@ export function TaskEditor(props: {
     }
     if (!directory().trim()) {
       setError("请选择项目")
+      return
+    }
+    if (kind() === "weekly" && days().length === 0) {
+      setError("请至少选择一天")
       return
     }
     setSaving(true)
@@ -123,24 +128,27 @@ export function TaskEditor(props: {
       >
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
           <div style="font-size:15px;font-weight:600;">{props.draft.id ? "编辑定时任务" : "设置定时任务"}</div>
-          <props.ui.IconButton icon="close-small" label="关闭" onClick={props.onCancel} />
+          <IconButton icon="close-small" label="关闭" onClick={props.onCancel} />
         </div>
 
         <div style={field}>
           <span style={label}>名称</span>
-          <TextInput
-            label="名称"
-            size="large"
+          <input
+            style={input}
             value={name()}
             placeholder="例如：每日行业动态"
-            onInput={setName}
+            onInput={(event) => setName(event.currentTarget.value)}
           />
         </div>
 
         <div style={field}>
-          <span style={label}>说明</span>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style={label}>说明</span>
+            <span style={muted}>{prompt().length} / 300</span>
+          </div>
           <textarea
             style={`${textarea}min-height:110px;`}
+            maxLength={300}
             value={prompt()}
             placeholder="描述这次运行要做什么。会作为一条新消息发给 agent。"
             onInput={(event) => setPrompt(event.currentTarget.value)}
@@ -157,17 +165,6 @@ export function TaskEditor(props: {
               onChange={(value) => setKind(value as Schedule["kind"])}
             />
           </div>
-          <Show when={kind() === "weekly"}>
-            <div style={field}>
-              <span style={label}>星期</span>
-              <Picker
-                value={String(weekday())}
-                options={WEEKDAYS.map((item, index) => ({ value: String(index), label: item }))}
-                dark={props.dark}
-                onChange={(value) => setWeekday(Number(value))}
-              />
-            </div>
-          </Show>
           <Show when={kind() === "daily" || kind() === "weekly"}>
             <div style={field}>
               <span style={label}>时间（本地）</span>
@@ -179,6 +176,39 @@ export function TaskEditor(props: {
               />
             </div>
           </Show>
+        </div>
+
+        <Show when={kind() === "weekly"}>
+          <div style={field}>
+            <span style={label}>星期（可多选）</span>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <For each={WEEKDAYS}>
+                {(item, index) => {
+                  const active = () => days().includes(index())
+                  return (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDays((current) =>
+                          current.includes(index())
+                            ? current.filter((day) => day !== index())
+                            : [...current, index()].sort((a, b) => a - b),
+                        )
+                      }
+                      style={`height:30px;min-width:44px;padding:0 8px;border-radius:7px;font-size:12px;font-family:inherit;cursor:pointer;color:inherit;border:1px solid ${
+                        active() ? "currentColor" : "rgba(127,127,127,0.3)"
+                      };background:${active() ? "rgba(127,127,127,0.16)" : "transparent"};`}
+                    >
+                      {item.replace("周", "")}
+                    </button>
+                  )
+                }}
+              </For>
+            </div>
+          </div>
+        </Show>
+
+        <div style={grid}>
           <Show when={kind() === "interval"}>
             <div style={field}>
               <span style={label}>间隔（分钟）</span>

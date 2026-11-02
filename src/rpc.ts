@@ -8,6 +8,7 @@ export type Schedule = {
   kind: ScheduleKind
   time?: string
   weekday?: number
+  weekdays?: number[]
   minutes?: number
   at?: number
 }
@@ -53,6 +54,7 @@ const ScheduleSchema = {
     kind: { type: "string", enum: ["daily", "weekly", "interval", "once"] },
     time: { type: "string" },
     weekday: { type: "number" },
+    weekdays: { type: "array", items: { type: "number" } },
     minutes: { type: "number" },
     at: { type: "number" },
   },

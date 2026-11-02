@@ -32,6 +32,11 @@ export function Picker(props: {
   }
 
   const openMenu = () => {
+    place()
+    setOpen(true)
+  }
+
+  const place = () => {
     const trigger = root?.firstElementChild as HTMLElement | undefined
     if (!trigger) return
     const box = trigger.getBoundingClientRect()
@@ -40,7 +45,6 @@ export function Picker(props: {
     const maxHeight = Math.max(160, Math.min(280, Math.max(below, above)))
     const top = below >= 180 || below >= above ? box.bottom + 4 : Math.max(8, box.top - maxHeight - 4)
     setRect({ top, left: box.left, width: box.width, maxHeight })
-    setOpen(true)
   }
 
   const onPointerDown = (event: PointerEvent) => {
@@ -48,17 +52,24 @@ export function Picker(props: {
     if (root.contains(event.target as Node)) return
     close()
   }
-  const onDismiss = () => close()
+  const onScroll = (event: Event) => {
+    if (!open()) return
+    if (root && event.target instanceof Node && root.contains(event.target)) return
+    place()
+  }
+  const onResize = () => {
+    if (open()) place()
+  }
 
   onMount(() => {
     document.addEventListener("pointerdown", onPointerDown, true)
-    window.addEventListener("resize", onDismiss)
-    window.addEventListener("scroll", onDismiss, true)
+    window.addEventListener("resize", onResize)
+    window.addEventListener("scroll", onScroll, true)
   })
   onCleanup(() => {
     document.removeEventListener("pointerdown", onPointerDown, true)
-    window.removeEventListener("resize", onDismiss)
-    window.removeEventListener("scroll", onDismiss, true)
+    window.removeEventListener("resize", onResize)
+    window.removeEventListener("scroll", onScroll, true)
   })
 
   return (

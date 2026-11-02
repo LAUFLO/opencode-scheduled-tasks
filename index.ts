@@ -34,6 +34,12 @@ function sanitizeSchedule(value: unknown): Schedule | undefined {
   const schedule: Schedule = { kind }
   if (typeof value.time === "string") schedule.time = value.time
   if (typeof value.weekday === "number") schedule.weekday = value.weekday
+  if (Array.isArray(value.weekdays)) {
+    const days = value.weekdays.filter(
+      (day): day is number => typeof day === "number" && Number.isInteger(day) && day >= 0 && day <= 6,
+    )
+    if (days.length > 0) schedule.weekdays = [...new Set(days)].sort((a, b) => a - b)
+  }
   if (typeof value.minutes === "number") schedule.minutes = value.minutes
   if (typeof value.at === "number") schedule.at = value.at
   return schedule
