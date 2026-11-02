@@ -30,10 +30,8 @@ export function TaskRow(props: { task: TaskView; running: boolean; selected: boo
       type="button"
       onClick={props.onClick}
       style={`display:flex;align-items:flex-start;gap:8px;width:100%;box-sizing:border-box;text-align:left;padding:10px;border-radius:9px;border:1px solid ${
-        props.selected ? "rgba(127,127,127,0.32)" : "transparent"
-      };background:${props.selected ? "rgba(127,127,127,0.1)" : "transparent"};box-shadow:${
-        props.selected ? "inset 2px 0 0 currentColor" : "none"
-      };color:inherit;cursor:pointer;`}
+        props.selected ? "rgba(127,127,127,0.3)" : "transparent"
+      };background:${props.selected ? "rgba(127,127,127,0.08)" : "transparent"};color:inherit;cursor:pointer;`}
     >
       <span style={`${dot(statusColor(props.task, props.running))}margin-top:5px;`} />
       <span style="display:flex;flex-direction:column;gap:3px;min-width:0;flex:1;">

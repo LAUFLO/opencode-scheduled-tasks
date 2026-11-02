@@ -85,8 +85,8 @@ export function TasksSettings(props: {
           </div>
         }
       >
-        <div style="display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:14px;align-items:stretch;">
-          <div style={`${card}padding:8px;display:flex;flex-direction:column;gap:2px;min-height:420px;`}>
+        <div style="display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:14px;align-items:start;">
+          <div style={`${card}padding:8px;display:flex;flex-direction:column;gap:2px;`}>
             <For each={props.tasks}>
               {(task) => (
                 <TaskRow
@@ -99,11 +99,11 @@ export function TasksSettings(props: {
             </For>
           </div>
 
-          <div style={`${card}padding:18px;min-height:420px;box-sizing:border-box;`}>
+          <div style={`${card}padding:18px;box-sizing:border-box;`}>
             <Show
               when={selected()}
               fallback={
-                <div style="height:100%;min-height:360px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;">
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;padding:32px 0;min-height:180px;">
                   <div style="font-size:24px;opacity:0.35;">◷</div>
                   <div style="font-size:13px;font-weight:600;">选择一个任务</div>
                   <div style={muted}>从左侧列表中查看详情、立即运行或编辑。</div>
