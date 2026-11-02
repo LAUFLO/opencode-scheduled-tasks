@@ -1,7 +1,7 @@
 // opencode-scheduled-tasks server entry
 import { Plugin } from "@opencode/plugin"
 import { ScheduledTasks, type RunRecord, type Task } from "./src/rpc.ts"
-import { nextRun } from "./src/shared/schedule.ts"
+import { describeSchedule, nextRun } from "./src/shared/schedule.ts"
 import type { Schedule, TaskMode } from "./src/shared/types.ts"
 
 const STORAGE_KEY = "tasks"
@@ -265,6 +265,74 @@ export default Plugin.define({
 
     recompute()
 
+    const saveTask = async (input: SaveTaskInput): Promise<{ ok: boolean; id?: string; error?: string }> => {
+      const name = input.name.trim()
+      const prompt = input.prompt.trim()
+      const directory = input.directory.trim()
+      if (!name) return { ok: false, error: "名称不能为空" }
+      if (!prompt) return { ok: false, error: "说明不能为空" }
+      if (!directory) return { ok: false, error: "请选择项目目录" }
+      const schedule = sanitizeSchedule(input.schedule)
+      if (!schedule) return { ok: false, error: "重复规则无效" }
+
+      const now = Date.now()
+      const newSession = input.newSession !== false
+      const existing = input.id ? tasks.find((task) => task.id === input.id) : undefined
+      const task: Task = existing
+        ? {
+            ...existing,
+            name,
+            prompt,
+            directory,
+            schedule,
+            updatedAt: now,
+            enabled: input.enabled ?? existing.enabled,
+            mode: input.mode ?? existing.mode,
+            newSession,
+            ...(input.model ? { model: input.model } : {}),
+          }
+        : {
+            id: crypto.randomUUID(),
+            name,
+            prompt,
+            directory,
+            schedule,
+            enabled: input.enabled ?? true,
+            mode: input.mode ?? "plan",
+            newSession,
+            createdAt: now,
+            updatedAt: now,
+            runs: [],
+            ...(input.model ? { model: input.model } : {}),
+          }
+
+      if (!input.model) delete task.model
+      if (newSession) delete task.sessionID
+      if (existing) {
+        const index = tasks.findIndex((item) => item.id === task.id)
+        tasks[index] = task
+      } else {
+        tasks.push(task)
+      }
+      await persist()
+      recompute()
+      arm()
+      emit("save", task.id)
+      return { ok: true, id: task.id }
+    }
+
+    const removeTask = async (id: string): Promise<{ ok: boolean; error?: string }> => {
+      if (running.has(id)) return { ok: false, error: "任务正在运行，稍后再删除" }
+      const before = tasks.length
+      tasks = tasks.filter((task) => task.id !== id)
+      if (tasks.length === before) return { ok: false, error: "任务不存在" }
+      dueAt.delete(id)
+      await persist()
+      arm()
+      emit("remove", id)
+      return { ok: true }
+    }
+
     const registration = await ctx.rpc.register(ScheduledTasks, {
       snapshot: async () => {
         recompute()
@@ -278,74 +346,8 @@ export default Plugin.define({
           }),
         }
       },
-      save: async (raw) => {
-        const input = raw as SaveTaskInput
-        const name = input.name.trim()
-        const prompt = input.prompt.trim()
-        const directory = input.directory.trim()
-        if (!name) return { ok: false, error: "名称不能为空" }
-        if (!prompt) return { ok: false, error: "说明不能为空" }
-        if (!directory) return { ok: false, error: "请选择项目目录" }
-        const schedule = sanitizeSchedule(input.schedule)
-        if (!schedule) return { ok: false, error: "重复规则无效" }
-
-        const now = Date.now()
-        const newSession = input.newSession !== false
-        const existing = input.id ? tasks.find((task) => task.id === input.id) : undefined
-        const task: Task = existing
-          ? {
-              ...existing,
-              name,
-              prompt,
-              directory,
-              schedule,
-              updatedAt: now,
-              enabled: input.enabled ?? existing.enabled,
-              mode: input.mode ?? existing.mode,
-              newSession,
-              ...(input.model ? { model: input.model } : {}),
-            }
-          : {
-              id: crypto.randomUUID(),
-              name,
-              prompt,
-              directory,
-              schedule,
-              enabled: input.enabled ?? true,
-              mode: input.mode ?? "plan",
-              newSession,
-              createdAt: now,
-              updatedAt: now,
-              runs: [],
-              ...(input.model ? { model: input.model } : {}),
-            }
-
-        if (!input.model) delete task.model
-        if (newSession) delete task.sessionID
-        if (existing) {
-          const index = tasks.findIndex((item) => item.id === task.id)
-          tasks[index] = task
-        } else {
-          tasks.push(task)
-        }
-        await persist()
-        recompute()
-        arm()
-        emit("save", task.id)
-        return { ok: true, id: task.id }
-      },
-      remove: async (raw) => {
-        const { id } = raw as { id: string }
-        if (running.has(id)) return { ok: false, error: "任务正在运行，稍后再删除" }
-        const before = tasks.length
-        tasks = tasks.filter((task) => task.id !== id)
-        if (tasks.length === before) return { ok: false, error: "任务不存在" }
-        dueAt.delete(id)
-        await persist()
-        arm()
-        emit("remove", id)
-        return { ok: true }
-      },
+      save: async (raw) => saveTask(raw as SaveTaskInput),
+      remove: async (raw) => removeTask((raw as { id: string }).id),
       toggle: async (raw) => {
         const { id, enabled } = raw as { id: string; enabled: boolean }
         const task = tasks.find((item) => item.id === id)
@@ -371,6 +373,200 @@ export default Plugin.define({
     emitting = async (reason, id) => {
       await registration.events.emit("changed", id ? { reason, id } : { reason })
     }
+
+    const resolveDirectory = async (value: string | undefined, sessionID: string): Promise<string | undefined> => {
+      const explicit = value?.trim()
+      if (explicit) return explicit
+      try {
+        const session = (await ctx.session.get({ sessionID: sessionID as never })) as {
+          location?: { directory?: string }
+        }
+        return session.location?.directory
+      } catch {
+        return undefined
+      }
+    }
+
+    const scheduleFromTool = (input: {
+      kind?: string
+      time?: string
+      weekdays?: number[]
+      minutes?: number
+      at?: string
+    }): Schedule | undefined => {
+      const kind = input.kind
+      if (kind !== "daily" && kind !== "weekly" && kind !== "interval" && kind !== "once") return undefined
+      const schedule: Schedule = { kind }
+      if (input.time) schedule.time = input.time
+      if (Array.isArray(input.weekdays) && input.weekdays.length > 0) schedule.weekdays = input.weekdays
+      if (typeof input.minutes === "number") schedule.minutes = input.minutes
+      if (input.at) {
+        const at = Date.parse(input.at)
+        if (Number.isFinite(at)) schedule.at = at
+      }
+      return schedule
+    }
+
+    await ctx.tool.transform((editor) => {
+      editor.add({
+        name: "scheduled_task_create",
+        description:
+          "Create a scheduled task that sends a prompt to an agent on a schedule on this machine. Use when the user asks to run something every day, every week, every N minutes, or once at a time. " +
+          "The prompt is sent verbatim as a user message in a new session (or a reused one when newSession is false).",
+        input: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "Short task name shown in the task list." },
+            prompt: {
+              type: "string",
+              description: "The instruction sent to the agent on every run. Write it as a complete prompt.",
+            },
+            kind: {
+              type: "string",
+              enum: ["daily", "weekly", "interval", "once"],
+              description: "daily, weekly, every N minutes, or a single run.",
+            },
+            time: { type: "string", description: "HH:mm in local time, for daily and weekly." },
+            weekdays: {
+              type: "array",
+              items: { type: "number" },
+              description: "For weekly: 0 = Sunday through 6 = Saturday. Several days allowed.",
+            },
+            minutes: { type: "number", description: "For interval: minutes between runs." },
+            at: { type: "string", description: "For once: an ISO date-time or a parseable date string." },
+            directory: {
+              type: "string",
+              description: "Absolute project directory. Omit to use the current session's project.",
+            },
+            model: { type: "string", description: "Optional model as providerID/modelID." },
+            mode: {
+              type: "string",
+              enum: ["plan", "default"],
+              description: "plan runs read-only; default lets the agent modify files.",
+            },
+            newSession: {
+              type: "boolean",
+              description: "Create a new session on every run. Set false to reuse one session for frequent runs.",
+            },
+          },
+          required: ["name", "prompt", "kind"],
+          additionalProperties: false,
+        },
+        execute: async (raw, toolContext) => {
+          const input = raw as {
+            name: string
+            prompt: string
+            kind: string
+            time?: string
+            weekdays?: number[]
+            minutes?: number
+            at?: string
+            directory?: string
+            model?: string
+            mode?: "plan" | "default"
+            newSession?: boolean
+          }
+          const schedule = scheduleFromTool(input)
+          if (!schedule) return { content: "创建失败：重复规则无效，请选择 daily、weekly、interval 或 once。" }
+
+          const directory = await resolveDirectory(input.directory, toolContext.sessionID)
+          if (!directory) {
+            return { content: "创建失败：没有项目目录。请让用户指定一个项目路径，或先打开一个会话。" }
+          }
+
+          let model: { providerID: string; id: string } | undefined
+          if (input.model && input.model.includes("/")) {
+            const index = input.model.indexOf("/")
+            model = { providerID: input.model.slice(0, index), id: input.model.slice(index + 1) }
+          }
+
+          const result = await saveTask({
+            name: input.name,
+            prompt: input.prompt,
+            directory,
+            schedule,
+            mode: input.mode ?? "plan",
+            newSession: input.newSession !== false,
+            ...(model ? { model } : {}),
+          })
+          if (!result.ok) return { content: `创建失败：${result.error ?? "未知错误"}` }
+
+          const task = tasks.find((item) => item.id === result.id)
+          const next = task ? dueAt.get(task.id) : undefined
+          const when = next ? new Date(next).toLocaleString("zh-CN", { hour12: false }) : "不会触发"
+          return {
+            content: `已创建定时任务「${task?.name ?? input.name}」：${task ? describeSchedule(task.schedule) : ""}，下次运行 ${when}。`,
+            metadata: { id: result.id ?? "", directory },
+          }
+        },
+      })
+
+      editor.add({
+        name: "scheduled_task_list",
+        description: "List the scheduled tasks on this machine with their schedule, status and next run.",
+        input: { type: "object", properties: {}, additionalProperties: false },
+        execute: async () => {
+          recompute()
+          if (tasks.length === 0) return { content: "当前没有定时任务。" }
+          const lines = tasks.map((task) => {
+            const next = task.enabled ? dueAt.get(task.id) : undefined
+            const state = !task.enabled ? "已暂停" : next ? `下次 ${new Date(next).toLocaleString("zh-CN", { hour12: false })}` : "待运行"
+            return `- ${task.name}（id: ${task.id}）：${describeSchedule(task.schedule)}，${state}`
+          })
+          return { content: lines.join("\n"), metadata: { count: tasks.length } }
+        },
+      })
+
+      editor.add({
+        name: "scheduled_task_delete",
+        description: "Delete a scheduled task by id or by its exact name.",
+        input: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "Task id from scheduled_task_list." },
+            name: { type: "string", description: "Exact task name, used when id is omitted." },
+          },
+          additionalProperties: false,
+        },
+        execute: async (raw) => {
+          const input = raw as { id?: string; name?: string }
+          const task = input.id
+            ? tasks.find((item) => item.id === input.id)
+            : input.name
+              ? tasks.find((item) => item.name === input.name)
+              : undefined
+          if (!task) return { content: "删除失败：没有找到匹配的任务，请先用 scheduled_task_list 查看。" }
+          const result = await removeTask(task.id)
+          if (!result.ok) return { content: `删除失败：${result.error ?? "未知错误"}` }
+          return { content: `已删除定时任务「${task.name}」。` }
+        },
+      })
+
+      editor.add({
+        name: "scheduled_task_run",
+        description: "Run a scheduled task immediately, without waiting for its next scheduled time.",
+        input: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "Task id from scheduled_task_list." },
+            name: { type: "string", description: "Exact task name, used when id is omitted." },
+          },
+          additionalProperties: false,
+        },
+        execute: async (raw) => {
+          const input = raw as { id?: string; name?: string }
+          const task = input.id
+            ? tasks.find((item) => item.id === input.id)
+            : input.name
+              ? tasks.find((item) => item.name === input.name)
+              : undefined
+          if (!task) return { content: "运行失败：没有找到匹配的任务。" }
+          if (running.has(task.id)) return { content: `任务「${task.name}」正在运行。` }
+          void runTask(task)
+          return { content: `已开始运行「${task.name}」，结果会记录在任务的运行历史里。` }
+        },
+      })
+    })
 
     dueAt.clear()
     recompute()

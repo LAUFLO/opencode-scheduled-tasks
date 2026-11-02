@@ -16,6 +16,7 @@ Inspired by the scheduled-tasks page in Codex Desktop, rebuilt as an OpenCode De
 - **Notifications** — an app notice and a system notification when a run finishes (only while the app is open).
 - **Command palette** — open the panel, create a task, or jump to the settings page.
 - **Local only** — tasks and history stay in the app's local storage; no secrets are written to disk.
+- **Agent tools** — ask the agent in any session to create, list, run or delete scheduled tasks in natural language.
 
 ## Important limits
 
@@ -64,6 +65,23 @@ Then add the plugin to your global `opencode.jsonc`:
 Restart OpenCode Desktop, then open **Settings → 定时任务**.
 
 The prebuilt `gui-experimental.cjs` is committed, so a rebuild is not needed after `git pull`.
+
+## Create from chat
+
+The plugin registers four tools the agent can call in any session:
+
+| Tool | What it does |
+|---|---|
+| `scheduled_task_create` | Creates a task from a name, prompt and schedule |
+| `scheduled_task_list` | Lists tasks with their next run |
+| `scheduled_task_delete` | Deletes a task by id or name |
+| `scheduled_task_run` | Runs a task immediately |
+
+Ask in natural language, for example:
+
+> 每天上午 9 点检查这个项目的 git 状态，有未提交的文件就列出来
+
+The agent fills the project directory from the current session, so you do not need to repeat the path. It defaults to read-only `plan` mode; mention "可以改文件" if the task needs to write.
 
 ## Usage
 
