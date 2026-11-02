@@ -1,8 +1,18 @@
 import { For, Show } from "solid-js"
 import type { Ui } from "@opencode/plugin/gui"
 import type { TaskView } from "../rpc.ts"
-import { card, label, muted, rowTitle } from "./theme"
+import { formatWhen } from "../shared/schedule.ts"
+import { card, muted } from "./theme"
 import { TaskDetail, TaskRow } from "./task-view"
+
+function Metric(props: { label: string; value: string }) {
+  return (
+    <span style="display:flex;align-items:baseline;gap:6px;white-space:nowrap;">
+      <span style={muted}>{props.label}</span>
+      <span style="font-size:13px;font-weight:600;">{props.value}</span>
+    </span>
+  )
+}
 
 export function TasksSettings(props: {
   tasks: TaskView[]
@@ -30,40 +40,27 @@ export function TasksSettings(props: {
   }
 
   return (
-    <div style="display:flex;flex-direction:column;gap:14px;padding:24px;max-width:1000px;">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;">
-        <div style="display:flex;flex-direction:column;gap:4px;">
-          <div style="font-size:18px;font-weight:600;">定时任务</div>
-          <div style={muted}>让 agent 按计划自动运行一段说明，结果保存在独立会话里。</div>
+    <div style="display:flex;flex-direction:column;gap:18px;padding:24px;max-width:1100px;">
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+          <div style="display:flex;flex-direction:column;gap:4px;min-width:0;">
+            <div style="font-size:20px;font-weight:600;letter-spacing:-0.01em;">定时任务</div>
+            <div style={muted}>让 agent 按计划自动运行一段说明，结果保存在独立会话里。</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-shrink:0;">
+            <Button variant="neutral" onClick={props.onRefresh}>
+              刷新
+            </Button>
+            <Button variant="contrast" onClick={props.onCreate}>
+              新建任务
+            </Button>
+          </div>
         </div>
-        <div style="display:flex;gap:8px;">
-          <Button variant="neutral" onClick={props.onRefresh}>
-            刷新
-          </Button>
-          <Button variant="contrast" onClick={props.onCreate}>
-            新建任务
-          </Button>
-        </div>
-      </div>
-
-      <div style={`${card}padding:12px 14px;display:flex;gap:20px;flex-wrap:wrap;`}>
-        <div style="display:flex;flex-direction:column;gap:2px;">
-          <span style={label}>任务</span>
-          <span style="font-size:15px;font-weight:600;">{props.tasks.length}</span>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:2px;">
-          <span style={label}>已启用</span>
-          <span style="font-size:15px;font-weight:600;">{active()}</span>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:2px;">
-          <span style={label}>下次运行</span>
-          <span style="font-size:15px;font-weight:600;">
-            {next() ? new Date(next()!).toLocaleString("zh-CN", { hour12: false }) : "—"}
-          </span>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:2px;">
-          <span style={label}>运行中</span>
-          <span style="font-size:15px;font-weight:600;">{props.running.length}</span>
+        <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+          <Metric label="任务" value={String(props.tasks.length)} />
+          <Metric label="已启用" value={String(active())} />
+          <Metric label="运行中" value={String(props.running.length)} />
+          <Metric label="下次运行" value={next() ? formatWhen(next(), Date.now()) : "—"} />
         </div>
       </div>
 
@@ -74,18 +71,22 @@ export function TasksSettings(props: {
       <Show
         when={props.tasks.length > 0}
         fallback={
-          <div style={`${card}padding:32px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;`}>
-            <div style="font-size:28px;opacity:0.4;">◷</div>
-            <div style={rowTitle}>还没有定时任务</div>
+          <div
+            style={`${card}padding:48px 24px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;`}
+          >
+            <div style="font-size:30px;opacity:0.4;">◷</div>
+            <div style="font-size:14px;font-weight:600;">还没有定时任务</div>
             <div style={muted}>创建一个任务，例如每天早上汇总行业动态。</div>
-            <Button variant="contrast" onClick={props.onCreate}>
-              新建任务
-            </Button>
+            <div style="margin-top:8px;">
+              <Button variant="contrast" onClick={props.onCreate}>
+                新建任务
+              </Button>
+            </div>
           </div>
         }
       >
-        <div style="display:grid;grid-template-columns:minmax(220px,300px) minmax(0,1fr);gap:14px;align-items:start;">
-          <div style={`${card}padding:8px;display:flex;flex-direction:column;gap:2px;`}>
+        <div style="display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:14px;align-items:stretch;">
+          <div style={`${card}padding:8px;display:flex;flex-direction:column;gap:2px;min-height:420px;`}>
             <For each={props.tasks}>
               {(task) => (
                 <TaskRow
@@ -98,10 +99,16 @@ export function TasksSettings(props: {
             </For>
           </div>
 
-          <div style={`${card}padding:16px;`}>
+          <div style={`${card}padding:18px;min-height:420px;box-sizing:border-box;`}>
             <Show
               when={selected()}
-              fallback={<div style={muted}>从左侧选择一个任务查看详情。</div>}
+              fallback={
+                <div style="height:100%;min-height:360px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;">
+                  <div style="font-size:24px;opacity:0.35;">◷</div>
+                  <div style="font-size:13px;font-weight:600;">选择一个任务</div>
+                  <div style={muted}>从左侧列表中查看详情、立即运行或编辑。</div>
+                </div>
+              }
             >
               {(task) => (
                 <TaskDetail

@@ -30,8 +30,10 @@ export function TaskRow(props: { task: TaskView; running: boolean; selected: boo
       type="button"
       onClick={props.onClick}
       style={`display:flex;align-items:flex-start;gap:8px;width:100%;box-sizing:border-box;text-align:left;padding:10px;border-radius:9px;border:1px solid ${
-        props.selected ? "rgba(34,197,94,0.45)" : "transparent"
-      };background:${props.selected ? "rgba(34,197,94,0.08)" : "transparent"};color:inherit;cursor:pointer;`}
+        props.selected ? "rgba(127,127,127,0.32)" : "transparent"
+      };background:${props.selected ? "rgba(127,127,127,0.1)" : "transparent"};box-shadow:${
+        props.selected ? "inset 2px 0 0 currentColor" : "none"
+      };color:inherit;cursor:pointer;`}
     >
       <span style={`${dot(statusColor(props.task, props.running))}margin-top:5px;`} />
       <span style="display:flex;flex-direction:column;gap:3px;min-width:0;flex:1;">
@@ -65,7 +67,7 @@ export function TaskDetail(props: {
     <div style="display:flex;flex-direction:column;gap:14px;">
       <div style="display:flex;flex-direction:column;gap:6px;">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <span style={rowTitle}>{props.task.name}</span>
+          <span style="font-size:15px;font-weight:600;">{props.task.name}</span>
           <span style={`${muted}display:flex;align-items:center;gap:5px;`}>
             <span style={dot(statusColor(props.task, props.running))} />
             {statusText(props.task, props.running)}
@@ -74,7 +76,7 @@ export function TaskDetail(props: {
         <div style={muted}>{describeSchedule(props.task.schedule)}</div>
       </div>
 
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px 14px;padding:10px 12px;border-radius:9px;background:rgba(127,127,127,0.05);">
         <div style="display:flex;flex-direction:column;gap:2px;">
           <span style={label}>下次运行</span>
           <span style="font-size:12px;">
@@ -123,13 +125,13 @@ export function TaskDetail(props: {
       </Show>
 
       <div style="display:flex;gap:7px;flex-wrap:wrap;">
-        <Button variant="neutral" onClick={props.onRunNow} disabled={props.running}>
+        <Button variant="contrast" onClick={props.onRunNow} disabled={props.running}>
           {props.running ? "运行中…" : "立即运行"}
         </Button>
         <Button variant="neutral" onClick={props.onToggle}>
           {props.task.enabled ? "暂停" : "启用"}
         </Button>
-        <Button variant="neutral" onClick={props.onEdit}>
+        <Button variant="ghost" onClick={props.onEdit}>
           编辑
         </Button>
         <Button variant="danger" onClick={props.onDelete}>

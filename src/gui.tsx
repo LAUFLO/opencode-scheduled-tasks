@@ -50,6 +50,11 @@ export default Plugin.define({
         setRunning(result.running)
         setError(undefined)
 
+        const current = selectedID()
+        if (result.tasks.length > 0 && (!current || !result.tasks.some((task) => task.id === current))) {
+          setSelectedID(result.tasks[0].id)
+        }
+
         const nextSeen = new Map<string, { at: number; status: RunStatus }>()
         for (const task of result.tasks) {
           const run = task.runs[0]
