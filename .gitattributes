@@ -1,0 +1,2 @@
+* text=auto eol=lf
+gui-experimental.cjs -diff linguist-generated
