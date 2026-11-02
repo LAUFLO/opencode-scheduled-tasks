@@ -105,7 +105,7 @@ export function TaskEditor(props: {
       }}
     >
       <div
-        style={`width:min(560px,100%);max-height:calc(100vh - 48px);overflow-y:auto;border-radius:14px;border:1px solid rgba(127,127,127,0.25);background:${surface()};color:${text()};box-shadow:0 24px 80px rgba(0,0,0,0.45);padding:20px;display:flex;flex-direction:column;gap:14px;`}
+        style={`width:min(560px,100%);max-height:calc(100vh - 48px);overflow-y:auto;border-radius:14px;border:1px solid rgba(127,127,127,0.25);background:${surface()};color:${text()};color-scheme:${props.dark ? "dark" : "light"};box-shadow:0 24px 80px rgba(0,0,0,0.45);padding:20px;display:flex;flex-direction:column;gap:14px;`}
         onClick={(event) => event.stopPropagation()}
       >
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
