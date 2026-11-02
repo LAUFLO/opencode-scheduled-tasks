@@ -1,16 +1,76 @@
 // opencode-scheduled-tasks server entry
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises"
+import { homedir } from "node:os"
+import { join } from "node:path"
 import { Plugin } from "@opencode/plugin"
 import { ScheduledTasks, type RunRecord, type Task } from "./src/rpc.ts"
 import { describeSchedule, nextRun } from "./src/shared/schedule.ts"
 import type { Schedule, TaskMode } from "./src/shared/types.ts"
 
-const STORAGE_KEY = "tasks"
+const DATA_DIR = join(homedir(), ".config", "opencode", "scheduled-tasks")
+const DATA_FILE = join(DATA_DIR, "tasks.json")
 const MAX_RUNS = 20
 const POLL_INTERVAL = 3_000
 const RUN_TIMEOUT = 30 * 60_000
 const WAKE_INTERVAL = 60_000
 
-type Json = string | number | boolean | null | readonly Json[] | { readonly [key: string]: Json }
+type Shared = {
+  tasks: Task[]
+  running: Set<string>
+  lastTrigger: Map<string, number>
+  loaded: boolean
+  loading: Promise<void> | undefined
+  writing: Promise<void>
+}
+
+const SHARED_KEY = Symbol.for("opencode-scheduled-tasks.shared")
+const globalRecord = globalThis as unknown as Record<symbol, Shared | undefined>
+const shared: Shared = globalRecord[SHARED_KEY] ?? {
+  tasks: [],
+  running: new Set<string>(),
+  lastTrigger: new Map<string, number>(),
+  loaded: false,
+  loading: undefined,
+  writing: Promise.resolve(),
+}
+globalRecord[SHARED_KEY] = shared
+
+async function loadShared(): Promise<void> {
+  if (shared.loaded) return
+  if (!shared.loading) {
+    shared.loading = (async () => {
+      try {
+        const text = await readFile(DATA_FILE, "utf8")
+        const parsed: unknown = JSON.parse(text)
+        if (Array.isArray(parsed)) {
+          shared.tasks = parsed.map(sanitizeTask).filter((task): task is Task => task !== undefined)
+        }
+      } catch (error) {
+        if ((error as { code?: string }).code !== "ENOENT") {
+          console.error("[opencode-scheduled-tasks] failed to load tasks", error)
+        }
+      }
+      shared.loaded = true
+      shared.loading = undefined
+    })()
+  }
+  await shared.loading
+}
+
+function persistShared(): Promise<void> {
+  const snapshot = shared.tasks.map((task) => ({ ...task }))
+  shared.writing = shared.writing.then(async () => {
+    try {
+      await mkdir(DATA_DIR, { recursive: true })
+      const temp = `${DATA_FILE}.tmp`
+      await writeFile(temp, JSON.stringify(snapshot, null, 2), "utf8")
+      await rename(temp, DATA_FILE)
+    } catch (error) {
+      console.error("[opencode-scheduled-tasks] failed to save tasks", error)
+    }
+  })
+  return shared.writing
+}
 
 type SaveTaskInput = {
   id?: string
@@ -101,30 +161,32 @@ function sleep(ms: number): Promise<void> {
 export default Plugin.define({
   id: "opencode-scheduled-tasks",
   async setup(ctx) {
-    let tasks: Task[] = []
-    try {
-      const stored = await ctx.storage.get(STORAGE_KEY)
-      if (Array.isArray(stored)) {
-        tasks = stored.map(sanitizeTask).filter((task): task is Task => task !== undefined)
+    await loadShared()
+    if (shared.tasks.length === 0) {
+      try {
+        const stored = await ctx.storage.get("tasks")
+        if (Array.isArray(stored)) {
+          const migrated = stored
+            .map(sanitizeTask)
+            .filter((task): task is Task => task !== undefined)
+          if (migrated.length > 0) {
+            shared.tasks.push(...migrated)
+            await persistShared()
+          }
+        }
+      } catch {
+        // No old per-project store; nothing to migrate.
       }
-    } catch (error) {
-      console.error("[opencode-scheduled-tasks] failed to load tasks", error)
-      tasks = []
     }
+    const tasks = shared.tasks
+    const running = shared.running
 
-    const running = new Set<string>()
     const dueAt = new Map<string, number>()
     let disposed = false
     let timer: ReturnType<typeof setTimeout> | undefined
     let emitting: ((reason: string, id?: string) => Promise<void>) | undefined
 
-    const persist = async () => {
-      try {
-        await ctx.storage.set(STORAGE_KEY, tasks as unknown as Json)
-      } catch (error) {
-        console.error("[opencode-scheduled-tasks] failed to save tasks", error)
-      }
-    }
+    const persist = () => persistShared()
 
     const emit = (reason: string, id?: string) => {
       if (disposed || !emitting) return
@@ -247,6 +309,10 @@ export default Plugin.define({
         const next = nextRun(task.schedule, now + 500)
         if (next === undefined) dueAt.delete(task.id)
         else dueAt.set(task.id, next)
+        // Every project has its own plugin instance; only one of them runs a due task.
+        const last = shared.lastTrigger.get(task.id) ?? 0
+        if (last >= due) continue
+        shared.lastTrigger.set(task.id, now)
         void runTask(task)
       }
       arm()
@@ -323,9 +389,9 @@ export default Plugin.define({
 
     const removeTask = async (id: string): Promise<{ ok: boolean; error?: string }> => {
       if (running.has(id)) return { ok: false, error: "任务正在运行，稍后再删除" }
-      const before = tasks.length
-      tasks = tasks.filter((task) => task.id !== id)
-      if (tasks.length === before) return { ok: false, error: "任务不存在" }
+      const index = tasks.findIndex((task) => task.id === id)
+      if (index < 0) return { ok: false, error: "任务不存在" }
+      tasks.splice(index, 1)
       dueAt.delete(id)
       await persist()
       arm()

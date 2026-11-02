@@ -98,7 +98,9 @@ The agent fills the project directory from the current session, so you do not ne
 
 ## Data
 
-Tasks and run history are stored by the OpenCode server plugin under the `tasks` storage key. Deleting a task removes its history. Sessions created by runs are normal sessions and can be deleted like any other.
+Tasks and run history are stored in `~/.config/opencode/scheduled-tasks/tasks.json` and are shared across every project. Deleting a task removes its history. Sessions created by runs are normal sessions and can be deleted like any other.
+
+The file is written atomically (temporary file + rename). If several projects are open at once, only one of them runs a due task; the others skip it.
 
 ## Safety
 
