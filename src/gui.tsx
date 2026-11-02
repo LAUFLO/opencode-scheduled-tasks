@@ -1,4 +1,5 @@
-import { createSignal } from "solid-js"
+import { Show, createSignal } from "solid-js"
+import { Portal } from "solid-js/web"
 import { Command, MenuItem, Panel, Plugin, SettingsPage, Slot } from "@opencode/plugin/gui"
 import type { PanelTab } from "@opencode/plugin/gui"
 import { ScheduledTasks, type ModelRef, type TaskView } from "./rpc.ts"
@@ -25,6 +26,7 @@ export default Plugin.define({
     const [selectedID, setSelectedID] = createSignal<string | undefined>()
     const [projects, setProjects] = createSignal<ProjectOption[]>([])
     const [models, setModels] = createSignal<ModelOption[]>([])
+    const [editorDraft, setEditorDraft] = createSignal<TaskDraft | undefined>()
 
     let disposed = false
     let loadingTasks = false
@@ -173,20 +175,10 @@ export default Plugin.define({
             mode: "plan",
           }
 
-      ctx.dialogs.open((dialog) => (
-        <TaskEditor
-          draft={draft}
-          projects={projects()}
-          models={models()}
-          dark={ctx.appearance.mode() === "dark"}
-          onCancel={dialog.close}
-          onSave={async (value) => {
-            const failure = await saveTask(value)
-            if (!failure) dialog.close()
-            return failure
-          }}
-        />
-      ))
+      setEditorDraft(draft)
+      const session = ctx.sessions.current()
+      if (session) ctx.layout.open(PANEL_KEY, session)
+      else ctx.layout.settings(PAGE_ID)
     }
 
     const deleteTask = async (id: string) => {
@@ -247,6 +239,27 @@ export default Plugin.define({
       ctx.layout.open(PANEL_KEY, session)
     }
 
+    const editor = () => (
+      <Show when={editorDraft()}>
+        {(draft) => (
+          <Portal>
+            <TaskEditor
+              draft={draft()}
+              projects={projects()}
+              models={models()}
+              dark={ctx.appearance.mode() === "dark"}
+              onCancel={() => setEditorDraft(undefined)}
+              onSave={async (value) => {
+                const failure = await saveTask(value)
+                if (!failure) setEditorDraft(undefined)
+                return failure
+              }}
+            />
+          </Portal>
+        )}
+      </Show>
+    )
+
     const openSettings = () => ctx.layout.settings(PAGE_ID)
 
     const createFromPalette = () => {
@@ -279,21 +292,24 @@ export default Plugin.define({
       },
       list: (input) => (input.open.includes(PANEL_ID) ? [panelTab] : []),
       render: () => (
-        <TasksPanel
-          tasks={tasks()}
-          running={running()}
-          selectedID={selectedID()}
-          loading={loading()}
-          error={error()}
-          onSelect={setSelectedID}
-          onCreate={() => openEditor()}
-          onEdit={(id) => openEditor(tasks().find((task) => task.id === id))}
-          onDelete={(id) => void deleteTask(id)}
-          onRunNow={(id) => void runNow(id)}
-          onToggle={(id) => void toggleTask(id)}
-          onOpenSession={openSession}
-          onRefresh={() => void loadTasks()}
-        />
+        <>
+          <TasksPanel
+            tasks={tasks()}
+            running={running()}
+            selectedID={selectedID()}
+            loading={loading()}
+            error={error()}
+            onSelect={setSelectedID}
+            onCreate={() => openEditor()}
+            onEdit={(id) => openEditor(tasks().find((task) => task.id === id))}
+            onDelete={(id) => void deleteTask(id)}
+            onRunNow={(id) => void runNow(id)}
+            onToggle={(id) => void toggleTask(id)}
+            onOpenSession={openSession}
+            onRefresh={() => void loadTasks()}
+          />
+          {editor()}
+        </>
       ),
     })
 
@@ -310,21 +326,24 @@ export default Plugin.define({
         ]
       },
       render: () => (
-        <TasksSettings
-          tasks={tasks()}
-          running={running()}
-          selectedID={selectedID()}
-          loading={loading()}
-          error={error()}
-          onSelect={setSelectedID}
-          onCreate={() => openEditor()}
-          onEdit={(id) => openEditor(tasks().find((task) => task.id === id))}
-          onDelete={(id) => void deleteTask(id)}
-          onRunNow={(id) => void runNow(id)}
-          onToggle={(id) => void toggleTask(id)}
-          onOpenSession={openSession}
-          onRefresh={() => void loadTasks()}
-        />
+        <>
+          <TasksSettings
+            tasks={tasks()}
+            running={running()}
+            selectedID={selectedID()}
+            loading={loading()}
+            error={error()}
+            onSelect={setSelectedID}
+            onCreate={() => openEditor()}
+            onEdit={(id) => openEditor(tasks().find((task) => task.id === id))}
+            onDelete={(id) => void deleteTask(id)}
+            onRunNow={(id) => void runNow(id)}
+            onToggle={(id) => void toggleTask(id)}
+            onOpenSession={openSession}
+            onRefresh={() => void loadTasks()}
+          />
+          {editor()}
+        </>
       ),
     })
 
