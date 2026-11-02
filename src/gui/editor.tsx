@@ -143,7 +143,7 @@ export function TaskEditor(props: {
             <span style={muted}>{prompt().length} / 300</span>
           </div>
           <textarea
-            style={`${textarea}min-height:110px;`}
+            style={`${textarea}height:110px;`}
             maxLength={300}
             value={prompt()}
             placeholder="描述这次运行要做什么。会作为一条新消息发给 agent。"
