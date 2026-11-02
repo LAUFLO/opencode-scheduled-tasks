@@ -115,7 +115,7 @@ export function TaskDetail(props: {
 
       <Show when={last()?.error}>
         <div style="font-size:12px;color:#ef4444;white-space:pre-wrap;border-radius:8px;border:1px solid rgba(239,68,68,0.3);padding:8px;">
-          {last().error}
+          {last()?.error}
         </div>
       </Show>
 
