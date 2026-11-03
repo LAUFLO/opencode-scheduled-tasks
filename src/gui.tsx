@@ -361,7 +361,23 @@ export default Plugin.define({
     ctx.add(Slot, {
       at: "session.header",
       order: 45,
-      render: () => <TasksBadge tasks={tasks()} running={running()} onOpen={openPanel} />,
+      render: () => (
+        <TasksBadge
+          tasks={tasks()}
+          running={running()}
+          dark={ctx.appearance.mode() === "dark"}
+          onOpenTask={(id) => {
+            setSelectedID(id)
+            if (ctx.sessions.current()) openPanel()
+            else openSettings()
+          }}
+          onCreate={() => {
+            void loadProjects()
+            openEditor()
+          }}
+          onManage={openSettings}
+        />
+      ),
     })
 
     ctx.add(MenuItem, {
