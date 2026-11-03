@@ -19,6 +19,7 @@ type Shared = {
   running: Set<string>
   lastTrigger: Map<string, number>
   loaded: boolean
+  fileExists: boolean
   loading: Promise<void> | undefined
   writing: Promise<void>
 }
@@ -30,6 +31,7 @@ const shared: Shared = globalRecord[SHARED_KEY] ?? {
   running: new Set<string>(),
   lastTrigger: new Map<string, number>(),
   loaded: false,
+  fileExists: false,
   loading: undefined,
   writing: Promise.resolve(),
 }
@@ -41,6 +43,7 @@ async function loadShared(): Promise<void> {
     shared.loading = (async () => {
       try {
         const text = await readFile(DATA_FILE, "utf8")
+        shared.fileExists = true
         const parsed: unknown = JSON.parse(text)
         if (Array.isArray(parsed)) {
           shared.tasks = parsed.map(sanitizeTask).filter((task): task is Task => task !== undefined)
@@ -65,6 +68,7 @@ function persistShared(): Promise<void> {
       const temp = `${DATA_FILE}.tmp`
       await writeFile(temp, JSON.stringify(snapshot, null, 2), "utf8")
       await rename(temp, DATA_FILE)
+      shared.fileExists = true
     } catch (error) {
       console.error("[opencode-scheduled-tasks] failed to save tasks", error)
     }
@@ -162,13 +166,21 @@ export default Plugin.define({
   id: "opencode-scheduled-tasks",
   async setup(ctx) {
     await loadShared()
-    if (shared.tasks.length === 0) {
+    // Hot reload keeps the cached shared object, which may predate `fileExists`.
+    // Infer it from the in-memory list instead of migrating a second time.
+    if (typeof (shared as { fileExists?: boolean }).fileExists !== "boolean") {
+      shared.fileExists = shared.tasks.length > 0
+    }
+    // Only migrate when the global store has never been created. An empty array
+    // means the user deleted their tasks, and must not resurrect old ones.
+    if (!shared.fileExists) {
       try {
         const stored = await ctx.storage.get("tasks")
         if (Array.isArray(stored)) {
+          const known = new Set(shared.tasks.map((task) => task.id))
           const migrated = stored
             .map(sanitizeTask)
-            .filter((task): task is Task => task !== undefined)
+            .filter((task): task is Task => task !== undefined && !known.has(task.id))
           if (migrated.length > 0) {
             shared.tasks.push(...migrated)
             await persistShared()
