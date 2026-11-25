@@ -290,6 +290,14 @@ export default Plugin.define({
           sessionID = session.id
           task.sessionID = sessionID
           await persist()
+        } else if (task.model) {
+          // A reused session keeps the model it was created with.
+          // Switch it before prompting so the task's current model takes effect.
+          try {
+            await ctx.session.switchModel({ sessionID, model: task.model })
+          } catch (error) {
+            throw new Error(`无法切换模型：${String(error)}`)
+          }
         }
         record.sessionID = sessionID
         await ctx.session.prompt({ sessionID, text: task.prompt })
